@@ -12,3 +12,7 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# Local Xcode project (intentionally not tracked — only Kopeyka/ source is)
+Kopeyka2/
+*.xcodeproj/
