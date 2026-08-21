@@ -14,6 +14,9 @@ struct ExpenseRowView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(expense.category?.name ?? "Без категории")
+                Text(RelativeDateFormatter.string(expense.date ?? Date()))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 if let note = expense.note, !note.isEmpty {
                     Text(note)
                         .font(.caption)

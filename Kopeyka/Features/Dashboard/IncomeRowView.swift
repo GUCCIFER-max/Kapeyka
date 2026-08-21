@@ -16,6 +16,9 @@ struct IncomeRowView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(income.source ?? "Доход")
+                Text(RelativeDateFormatter.string(income.date ?? Date()))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 if income.isDebt {
                     Text("Долг")
                         .font(.caption)
