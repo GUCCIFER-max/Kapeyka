@@ -7,29 +7,33 @@ struct ProfileView: View {
     @FetchRequest(sortDescriptors: [])
     private var settingsResults: FetchedResults<Settings>
 
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "time", ascending: true)])
+    private var reminderTimes: FetchedResults<ReminderTime>
+
     private var settings: Settings? { settingsResults.first }
 
     var body: some View {
         NavigationStack {
             Form {
                 if let settings {
-                    Section("Валюта") {
-                        Picker("Валюта", selection: currencyBinding(for: settings)) {
-                            Text("UZS").tag("UZS")
-                            Text("USD").tag("USD")
-                        }
-                        .pickerStyle(.segmented)
-                    }
-
                     Section("Уведомления") {
-                        Toggle("Ежедневное напоминание", isOn: notificationsBinding(for: settings))
+                        Toggle("Ежедневные напоминания", isOn: notificationsBinding(for: settings))
 
                         if settings.notificationsEnabled {
-                            DatePicker(
-                                "Время",
-                                selection: reminderTimeBinding(for: settings),
-                                displayedComponents: .hourAndMinute
-                            )
+                            ForEach(reminderTimes, id: \.id) { reminder in
+                                DatePicker(
+                                    "Время",
+                                    selection: timeBinding(for: reminder),
+                                    displayedComponents: .hourAndMinute
+                                )
+                            }
+                            .onDelete(perform: deleteReminders)
+
+                            Button {
+                                addReminder()
+                            } label: {
+                                Label("Добавить время", systemImage: "plus")
+                            }
                         }
                     }
 
@@ -49,16 +53,6 @@ struct ProfileView: View {
         }
     }
 
-    private func currencyBinding(for settings: Settings) -> Binding<String> {
-        Binding(
-            get: { settings.defaultCurrency ?? "UZS" },
-            set: { newValue in
-                settings.defaultCurrency = newValue
-                try? context.save()
-            }
-        )
-    }
-
     private func notificationsBinding(for settings: Settings) -> Binding<Bool> {
         Binding(
             get: { settings.notificationsEnabled },
@@ -68,26 +62,51 @@ struct ProfileView: View {
 
                 if newValue {
                     NotificationManager.requestAuthorization { granted in
-                        if granted {
-                            NotificationManager.scheduleDailyReminder(at: settings.reminderTime ?? Self.defaultReminderTime)
-                        }
+                        guard granted else { return }
+                        ensureAtLeastOneReminder()
+                        rescheduleAll()
                     }
                 } else {
-                    NotificationManager.cancelDailyReminder()
+                    NotificationManager.cancelAll()
                 }
             }
         )
     }
 
-    private func reminderTimeBinding(for settings: Settings) -> Binding<Date> {
+    private func timeBinding(for reminder: ReminderTime) -> Binding<Date> {
         Binding(
-            get: { settings.reminderTime ?? Self.defaultReminderTime },
+            get: { reminder.time ?? Self.defaultReminderTime },
             set: { newValue in
-                settings.reminderTime = newValue
+                reminder.time = newValue
                 try? context.save()
-                NotificationManager.scheduleDailyReminder(at: newValue)
+                rescheduleAll()
             }
         )
+    }
+
+    private func addReminder() {
+        let reminder = ReminderTime(context: context)
+        reminder.id = UUID()
+        reminder.time = Self.defaultReminderTime
+        try? context.save()
+        rescheduleAll()
+    }
+
+    private func deleteReminders(at offsets: IndexSet) {
+        for index in offsets {
+            context.delete(reminderTimes[index])
+        }
+        try? context.save()
+        rescheduleAll()
+    }
+
+    private func ensureAtLeastOneReminder() {
+        guard reminderTimes.isEmpty else { return }
+        addReminder()
+    }
+
+    private func rescheduleAll() {
+        NotificationManager.rescheduleAll(times: reminderTimes.compactMap(\.time))
     }
 
     private static var defaultReminderTime: Date {
