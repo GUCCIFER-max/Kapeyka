@@ -14,7 +14,7 @@
         </uniquenessConstraints>
     </entity>
     <entity name="Expense" representedClassName="Expense" syncable="YES" codeGenerationType="class">
-        <attribute name="amount" attributeType="Decimal" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="amountRaw" attributeType="Decimal" defaultValueString="0.0"/>
         <attribute name="currency" attributeType="String" defaultValueString="UZS"/>
         <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
@@ -31,11 +31,11 @@
     </entity>
     <entity name="Settings" representedClassName="Settings" syncable="YES" codeGenerationType="class">
         <attribute name="defaultCurrency" attributeType="String" defaultValueString="UZS"/>
-        <attribute name="monthlyBudget" attributeType="Decimal" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="monthlyBudgetRaw" attributeType="Decimal" defaultValueString="0.0"/>
         <attribute name="notificationsEnabled" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
     </entity>
     <entity name="Template" representedClassName="Template" syncable="YES" codeGenerationType="class">
-        <attribute name="amount" attributeType="Decimal" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="amountRaw" attributeType="Decimal" defaultValueString="0.0"/>
         <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="label" attributeType="String" defaultValueString=""/>
         <relationship name="category" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Category" inverseName="templates" inverseEntity="Category"/>
