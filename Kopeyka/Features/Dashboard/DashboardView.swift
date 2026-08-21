@@ -51,9 +51,13 @@ struct DashboardView: View {
 
     private var debts: [BalanceCardView.DebtEntry] {
         allIncomes.compactMap { income in
-            guard income.isDebt, let id = income.id else { return nil }
-            return BalanceCardView.DebtEntry(id: id, source: income.source ?? "Долг", amount: income.amount)
+            guard income.isDebt, !income.isSettled, let id = income.id else { return nil }
+            return BalanceCardView.DebtEntry(id: id, source: income.source ?? "Долг", amount: income.remainingDebt)
         }
+    }
+
+    private var activeDebtsCount: Int {
+        allIncomes.filter { $0.isDebt && !$0.isSettled }.count
     }
 
     private var ledgerEntries: [LedgerEntry] {
@@ -92,6 +96,16 @@ struct DashboardView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets())
+                }
+
+                if activeDebtsCount > 0 {
+                    Section {
+                        NavigationLink {
+                            DebtsListView()
+                        } label: {
+                            Label("Активных долгов: \(activeDebtsCount)", systemImage: "creditcard")
+                        }
+                    }
                 }
 
                 Section {

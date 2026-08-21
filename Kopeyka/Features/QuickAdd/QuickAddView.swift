@@ -14,6 +14,12 @@ struct QuickAddView: View {
     @FetchRequest(sortDescriptors: [])
     private var settingsResults: FetchedResults<Settings>
 
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)],
+        predicate: NSPredicate(format: "isDebt == YES")
+    )
+    private var allDebts: FetchedResults<Income>
+
     @StateObject private var viewModel: QuickAddViewModel
     @FocusState private var isAmountFocused: Bool
 
@@ -35,6 +41,10 @@ struct QuickAddView: View {
     }
 
     private var currencyCode: String { settingsResults.first?.defaultCurrency ?? "UZS" }
+
+    private var unsettledDebts: [Income] {
+        allDebts.filter { !$0.isSettled || $0.id == viewModel.repaidDebtID }
+    }
 
     var body: some View {
         NavigationStack {
@@ -66,11 +76,31 @@ struct QuickAddView: View {
                         selectedCategoryID: $viewModel.selectedCategoryID
                     )
 
+                    if !unsettledDebts.isEmpty {
+                        Toggle("Это погашение долга", isOn: $viewModel.isRepayingDebt.animation())
+                            .onChange(of: viewModel.isRepayingDebt) { isOn in
+                                if !isOn { viewModel.repaidDebtID = nil }
+                            }
+
+                        if viewModel.isRepayingDebt {
+                            Picker("Долг", selection: $viewModel.repaidDebtID) {
+                                Text("Выберите долг").tag(UUID?.none)
+                                ForEach(unsettledDebts, id: \.id) { debt in
+                                    Text("\(debt.source ?? "Долг") — осталось \(CurrencyFormatter.string(debt.remainingDebt, currencyCode: debt.currency ?? "UZS"))")
+                                        .tag(debt.id)
+                                }
+                            }
+                        }
+                    }
+
                     TextField("Комментарий (необязательно)", text: $viewModel.note)
                         .textFieldStyle(.roundedBorder)
                 } else {
-                    TextField("Источник (зарплата, от Азиза...)", text: $viewModel.source)
-                        .textFieldStyle(.roundedBorder)
+                    TextField(
+                        viewModel.isDebt ? "Откуда долг (Uzum, Tez, у Азиза...)" : "Источник (зарплата, перевод...)",
+                        text: $viewModel.source
+                    )
+                    .textFieldStyle(.roundedBorder)
 
                     Toggle("Это долг (нужно будет вернуть)", isOn: $viewModel.isDebt)
                 }
@@ -98,9 +128,13 @@ struct QuickAddView: View {
     private func save() {
         switch viewModel.mode {
         case .expense:
-            guard let categoryID = viewModel.selectedCategoryID,
-                  let category = categories.first(where: { $0.id == categoryID }) else { return }
-            if viewModel.saveExpense(in: context, category: category, currencyCode: currencyCode) {
+            let category = viewModel.selectedCategoryID.flatMap { id in
+                categories.first(where: { $0.id == id })
+            }
+            let repaidDebt = viewModel.isRepayingDebt
+                ? viewModel.repaidDebtID.flatMap { id in unsettledDebts.first(where: { $0.id == id }) }
+                : nil
+            if viewModel.saveExpense(in: context, category: category, repaidDebt: repaidDebt, currencyCode: currencyCode) {
                 Haptics.success()
                 dismiss()
             }

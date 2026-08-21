@@ -16,6 +16,8 @@ final class QuickAddViewModel: ObservableObject {
     @Published var note: String
     @Published var source: String
     @Published var isDebt: Bool
+    @Published var isRepayingDebt: Bool
+    @Published var repaidDebtID: UUID?
 
     private let editingExpense: Expense?
     private let editingIncome: Income?
@@ -31,6 +33,8 @@ final class QuickAddViewModel: ObservableObject {
             isDebt = editingIncome.isDebt
             selectedCategoryID = nil
             note = ""
+            isRepayingDebt = false
+            repaidDebtID = nil
         } else if let editingExpense {
             mode = .expense
             amountText = NSDecimalNumber(decimal: editingExpense.amount).stringValue
@@ -38,6 +42,8 @@ final class QuickAddViewModel: ObservableObject {
             note = editingExpense.note ?? ""
             source = ""
             isDebt = false
+            repaidDebtID = editingExpense.repaidDebt?.id
+            isRepayingDebt = editingExpense.repaidDebt != nil
         } else {
             mode = .expense
             amountText = ""
@@ -45,6 +51,8 @@ final class QuickAddViewModel: ObservableObject {
             note = ""
             source = ""
             isDebt = false
+            isRepayingDebt = false
+            repaidDebtID = nil
         }
     }
 
@@ -52,7 +60,7 @@ final class QuickAddViewModel: ObservableObject {
         guard parsedAmount != nil else { return false }
         switch mode {
         case .expense:
-            return selectedCategoryID != nil
+            return selectedCategoryID != nil || (isRepayingDebt && repaidDebtID != nil)
         case .income:
             return !source.trimmingCharacters(in: .whitespaces).isEmpty
         }
@@ -66,8 +74,13 @@ final class QuickAddViewModel: ObservableObject {
     }
 
     @discardableResult
-    func saveExpense(in context: NSManagedObjectContext, category: Category, currencyCode: String) -> Bool {
-        guard let amount = parsedAmount else { return false }
+    func saveExpense(
+        in context: NSManagedObjectContext,
+        category: Category?,
+        repaidDebt: Income?,
+        currencyCode: String
+    ) -> Bool {
+        guard let amount = parsedAmount, category != nil || repaidDebt != nil else { return false }
 
         let expense = editingExpense ?? Expense(context: context)
         if editingExpense == nil {
@@ -77,6 +90,7 @@ final class QuickAddViewModel: ObservableObject {
         }
         expense.amount = amount
         expense.category = category
+        expense.repaidDebt = repaidDebt
         expense.note = note.isEmpty ? nil : note
 
         return (try? context.save()) != nil
