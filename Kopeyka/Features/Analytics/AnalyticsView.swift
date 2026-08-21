@@ -32,7 +32,7 @@ private struct CategoryTotal: Identifiable {
 }
 
 struct AnalyticsView: View {
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \Expense.date, ascending: false)])
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)])
     private var allExpenses: FetchedResults<Expense>
 
     @FetchRequest(sortDescriptors: [])

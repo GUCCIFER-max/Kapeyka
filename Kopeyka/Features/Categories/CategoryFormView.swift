@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreData
 
 /// Adding a category only asks for a name — hue is auto-assigned (ТЗ 4.1:
 /// colors are never picked by hand) and the letter avatar is derived from it.

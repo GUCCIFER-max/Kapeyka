@@ -7,19 +7,19 @@ import CoreData
 struct DashboardView: View {
     @Environment(\.managedObjectContext) private var context
 
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \Category.name, ascending: true)])
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "name", ascending: true)])
     private var categories: FetchedResults<Category>
 
     @FetchRequest(sortDescriptors: [])
     private var settingsResults: FetchedResults<Settings>
 
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Expense.date, ascending: false)],
+        sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)],
         predicate: DashboardView.currentMonthPredicate()
     )
     private var monthExpenses: FetchedResults<Expense>
 
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \Expense.date, ascending: false)])
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)])
     private var allExpenses: FetchedResults<Expense>
 
     @State private var selectedCategoryID: UUID?

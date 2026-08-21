@@ -5,10 +5,10 @@ struct QuickAddView: View {
     @Environment(\.managedObjectContext) private var context
     @Environment(\.dismiss) private var dismiss
 
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \Category.name, ascending: true)])
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "name", ascending: true)])
     private var categories: FetchedResults<Category>
 
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \Template.label, ascending: true)])
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "label", ascending: true)])
     private var templates: FetchedResults<Template>
 
     @FetchRequest(sortDescriptors: [])

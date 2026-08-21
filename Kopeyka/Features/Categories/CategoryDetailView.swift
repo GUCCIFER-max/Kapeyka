@@ -23,12 +23,12 @@ struct CategoryDetailView: View {
 
         let templateRequest: NSFetchRequest<Template> = Template.fetchRequest()
         templateRequest.predicate = NSPredicate(format: "category.id == %@", categoryID as CVarArg)
-        templateRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Template.label, ascending: true)]
+        templateRequest.sortDescriptors = [NSSortDescriptor(key: "label", ascending: true)]
         _templates = FetchRequest(fetchRequest: templateRequest)
 
         let expenseRequest: NSFetchRequest<Expense> = Expense.fetchRequest()
         expenseRequest.predicate = NSPredicate(format: "category.id == %@", categoryID as CVarArg)
-        expenseRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Expense.date, ascending: false)]
+        expenseRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
         _expenses = FetchRequest(fetchRequest: expenseRequest)
     }
 

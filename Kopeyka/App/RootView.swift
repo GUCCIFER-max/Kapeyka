@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreData
 
 /// Hosts the four tabs plus the floating "+" that opens Quick Add over
 /// whichever tab is currently active (ТЗ 4.1: works "с любой вкладки").

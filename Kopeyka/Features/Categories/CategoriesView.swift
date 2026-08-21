@@ -2,7 +2,7 @@ import SwiftUI
 import CoreData
 
 struct CategoriesView: View {
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \Category.name, ascending: true)])
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "name", ascending: true)])
     private var categories: FetchedResults<Category>
 
     @FetchRequest(sortDescriptors: [], predicate: CategoriesView.currentMonthPredicate())
