@@ -2,34 +2,71 @@ import Foundation
 import Combine
 import CoreData
 
+enum EntryMode: String, CaseIterable, Identifiable {
+    case expense = "Трата"
+    case income = "Доход"
+
+    var id: String { rawValue }
+}
+
 final class QuickAddViewModel: ObservableObject {
+    @Published var mode: EntryMode
     @Published var amountText: String
     @Published var selectedCategoryID: UUID?
     @Published var note: String
+    @Published var source: String
+    @Published var isDebt: Bool
 
     private let editingExpense: Expense?
+    private let editingIncome: Income?
 
-    init(editing expense: Expense? = nil) {
-        editingExpense = expense
-        amountText = expense.map { NSDecimalNumber(decimal: $0.amount).stringValue } ?? ""
-        selectedCategoryID = expense?.category?.id
-        note = expense?.note ?? ""
+    init(editingExpense: Expense? = nil, editingIncome: Income? = nil) {
+        self.editingExpense = editingExpense
+        self.editingIncome = editingIncome
+
+        if let editingIncome {
+            mode = .income
+            amountText = NSDecimalNumber(decimal: editingIncome.amount).stringValue
+            source = editingIncome.source ?? ""
+            isDebt = editingIncome.isDebt
+            selectedCategoryID = nil
+            note = ""
+        } else if let editingExpense {
+            mode = .expense
+            amountText = NSDecimalNumber(decimal: editingExpense.amount).stringValue
+            selectedCategoryID = editingExpense.category?.id
+            note = editingExpense.note ?? ""
+            source = ""
+            isDebt = false
+        } else {
+            mode = .expense
+            amountText = ""
+            selectedCategoryID = nil
+            note = ""
+            source = ""
+            isDebt = false
+        }
     }
 
     var canSave: Bool {
-        selectedCategoryID != nil && parsedAmount != nil
+        guard parsedAmount != nil else { return false }
+        switch mode {
+        case .expense:
+            return selectedCategoryID != nil
+        case .income:
+            return !source.trimmingCharacters(in: .whitespaces).isEmpty
+        }
     }
 
     private var parsedAmount: Decimal? {
-        let normalized = amountText.replacingOccurrences(of: ",", with: ".")
-        guard let amount = Decimal(string: normalized, locale: Locale(identifier: "en_US")), amount > 0 else {
+        guard let amount = Decimal(string: amountText, locale: Locale(identifier: "en_US")), amount > 0 else {
             return nil
         }
         return amount
     }
 
     @discardableResult
-    func save(in context: NSManagedObjectContext, category: Category, currencyCode: String) -> Bool {
+    func saveExpense(in context: NSManagedObjectContext, category: Category, currencyCode: String) -> Bool {
         guard let amount = parsedAmount else { return false }
 
         let expense = editingExpense ?? Expense(context: context)
@@ -41,6 +78,22 @@ final class QuickAddViewModel: ObservableObject {
         expense.amount = amount
         expense.category = category
         expense.note = note.isEmpty ? nil : note
+
+        return (try? context.save()) != nil
+    }
+
+    @discardableResult
+    func saveIncome(in context: NSManagedObjectContext) -> Bool {
+        guard let amount = parsedAmount else { return false }
+
+        let income = editingIncome ?? Income(context: context)
+        if editingIncome == nil {
+            income.id = UUID()
+            income.date = Date()
+        }
+        income.amount = amount
+        income.source = source.trimmingCharacters(in: .whitespaces)
+        income.isDebt = isDebt
 
         return (try? context.save()) != nil
     }

@@ -18,9 +18,9 @@ extension Template {
     }
 }
 
-extension Settings {
-    var monthlyBudget: Decimal {
-        get { (monthlyBudgetRaw as Decimal?) ?? 0 }
-        set { monthlyBudgetRaw = newValue as NSDecimalNumber }
+extension Income {
+    var amount: Decimal {
+        get { (amountRaw as Decimal?) ?? 0 }
+        set { amountRaw = newValue as NSDecimalNumber }
     }
 }

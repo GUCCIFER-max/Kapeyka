@@ -18,10 +18,20 @@ struct QuickAddView: View {
     @FocusState private var isAmountFocused: Bool
 
     private let editingExpense: Expense?
+    private let editingIncome: Income?
 
-    init(editingExpense: Expense? = nil) {
+    init(editingExpense: Expense? = nil, editingIncome: Income? = nil) {
         self.editingExpense = editingExpense
-        _viewModel = StateObject(wrappedValue: QuickAddViewModel(editing: editingExpense))
+        self.editingIncome = editingIncome
+        _viewModel = StateObject(wrappedValue: QuickAddViewModel(editingExpense: editingExpense, editingIncome: editingIncome))
+    }
+
+    private var isEditing: Bool { editingExpense != nil || editingIncome != nil }
+
+    private var title: String {
+        if editingExpense != nil { return "Редактировать трату" }
+        if editingIncome != nil { return "Редактировать доход" }
+        return viewModel.mode == .expense ? "Добавить трату" : "Добавить доход"
     }
 
     private var currencyCode: String { settingsResults.first?.defaultCurrency ?? "UZS" }
@@ -29,7 +39,16 @@ struct QuickAddView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                if editingExpense == nil, !templates.isEmpty {
+                if !isEditing {
+                    Picker("", selection: $viewModel.mode) {
+                        ForEach(EntryMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                if viewModel.mode == .expense, !isEditing, !templates.isEmpty {
                     TemplateRow(templates: Array(templates)) { template in
                         if viewModel.saveInstantly(template: template, in: context, currencyCode: currencyCode) {
                             Haptics.success()
@@ -38,25 +57,28 @@ struct QuickAddView: View {
                     }
                 }
 
-                TextField("0", text: $viewModel.amountText)
-                    .keyboardType(.decimalPad)
+                AmountField(rawValue: $viewModel.amountText)
                     .focused($isAmountFocused)
-                    .font(.sum(56))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
 
-                CategoryPickerRow(
-                    categories: Array(categories),
-                    selectedCategoryID: $viewModel.selectedCategoryID
-                )
+                if viewModel.mode == .expense {
+                    CategoryPickerRow(
+                        categories: Array(categories),
+                        selectedCategoryID: $viewModel.selectedCategoryID
+                    )
 
-                TextField("Комментарий (необязательно)", text: $viewModel.note)
-                    .textFieldStyle(.roundedBorder)
+                    TextField("Комментарий (необязательно)", text: $viewModel.note)
+                        .textFieldStyle(.roundedBorder)
+                } else {
+                    TextField("Источник (зарплата, от Азиза...)", text: $viewModel.source)
+                        .textFieldStyle(.roundedBorder)
+
+                    Toggle("Это долг (нужно будет вернуть)", isOn: $viewModel.isDebt)
+                }
 
                 Spacer()
             }
             .padding()
-            .navigationTitle(editingExpense == nil ? "Добавить трату" : "Редактировать трату")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -64,17 +86,29 @@ struct QuickAddView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Готово") {
-                        guard let categoryID = viewModel.selectedCategoryID,
-                              let category = categories.first(where: { $0.id == categoryID }) else { return }
-                        if viewModel.save(in: context, category: category, currencyCode: currencyCode) {
-                            Haptics.success()
-                            dismiss()
-                        }
+                        save()
                     }
                     .disabled(!viewModel.canSave)
                 }
             }
             .onAppear { isAmountFocused = true }
+        }
+    }
+
+    private func save() {
+        switch viewModel.mode {
+        case .expense:
+            guard let categoryID = viewModel.selectedCategoryID,
+                  let category = categories.first(where: { $0.id == categoryID }) else { return }
+            if viewModel.saveExpense(in: context, category: category, currencyCode: currencyCode) {
+                Haptics.success()
+                dismiss()
+            }
+        case .income:
+            if viewModel.saveIncome(in: context) {
+                Haptics.success()
+                dismiss()
+            }
         }
     }
 }

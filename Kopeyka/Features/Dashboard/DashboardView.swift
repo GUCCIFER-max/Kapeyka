@@ -1,9 +1,22 @@
 import SwiftUI
 import CoreData
 
+private struct LedgerEntry: Identifiable {
+    enum Kind {
+        case expense(Expense)
+        case income(Income)
+    }
+
+    let kind: Kind
+    let id: UUID
+    let date: Date
+}
+
 /// Also doubles as the "История" screen from ТЗ 3.1 #4 — search, category
 /// filter, edit and delete all live in this feed since the ТЗ's own screen
-/// list (§4.2) has no separate History screen.
+/// list (§4.2) has no separate History screen. Now a unified ledger: every
+/// expense and every income entry, since the balance is running, not a
+/// monthly reset.
 struct DashboardView: View {
     @Environment(\.managedObjectContext) private var context
 
@@ -13,45 +26,64 @@ struct DashboardView: View {
     @FetchRequest(sortDescriptors: [])
     private var settingsResults: FetchedResults<Settings>
 
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)],
-        predicate: DashboardView.currentMonthPredicate()
-    )
-    private var monthExpenses: FetchedResults<Expense>
-
     @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)])
     private var allExpenses: FetchedResults<Expense>
 
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)])
+    private var allIncomes: FetchedResults<Income>
+
     @State private var selectedCategoryID: UUID?
     @State private var searchText = ""
-    @State private var isEditingExpense = false
+    @State private var isEditingEntry = false
     @State private var expenseBeingEdited: Expense?
+    @State private var incomeBeingEdited: Income?
 
     private var settings: Settings? { settingsResults.first }
     private var currencyCode: String { settings?.defaultCurrency ?? "UZS" }
 
-    // Always the true month total — unaffected by the history filters below.
-    private var spent: Decimal {
-        monthExpenses.reduce(Decimal(0)) { $0 + $1.amount }
+    private var incomeTotal: Decimal {
+        allIncomes.reduce(Decimal(0)) { $0 + $1.amount }
     }
 
-    private var filteredExpenses: [Expense] {
-        allExpenses.filter { expense in
-            let matchesCategory = selectedCategoryID == nil || expense.category?.id == selectedCategoryID
+    private var expenseTotal: Decimal {
+        allExpenses.reduce(Decimal(0)) { $0 + $1.amount }
+    }
+
+    private var debtTotal: Decimal {
+        allIncomes.filter(\.isDebt).reduce(Decimal(0)) { $0 + $1.amount }
+    }
+
+    private var ledgerEntries: [LedgerEntry] {
+        let expenseEntries: [LedgerEntry] = allExpenses.compactMap { expense in
+            guard let id = expense.id, let date = expense.date else { return nil }
+            guard selectedCategoryID == nil || expense.category?.id == selectedCategoryID else { return nil }
             let matchesSearch = searchText.isEmpty
                 || (expense.note ?? "").localizedCaseInsensitiveContains(searchText)
                 || (expense.category?.name ?? "").localizedCaseInsensitiveContains(searchText)
-            return matchesCategory && matchesSearch
+            guard matchesSearch else { return nil }
+            return LedgerEntry(kind: .expense(expense), id: id, date: date)
         }
+
+        let incomeEntries: [LedgerEntry] = allIncomes.compactMap { income in
+            guard let id = income.id, let date = income.date else { return nil }
+            guard selectedCategoryID == nil else { return nil }
+            let matchesSearch = searchText.isEmpty || (income.source ?? "").localizedCaseInsensitiveContains(searchText)
+            guard matchesSearch else { return nil }
+            return LedgerEntry(kind: .income(income), id: id, date: date)
+        }
+
+        return (expenseEntries + incomeEntries).sorted { $0.date > $1.date }
     }
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    BudgetCardView(
-                        spent: spent,
-                        budget: settings?.monthlyBudget ?? 0,
+                    BalanceCardView(
+                        balance: incomeTotal - expenseTotal,
+                        income: incomeTotal,
+                        expenses: expenseTotal,
+                        debt: debtTotal,
                         currencyCode: currencyCode
                     )
                     .listRowBackground(Color.clear)
@@ -69,20 +101,17 @@ struct DashboardView: View {
                 }
 
                 Section("История") {
-                    if filteredExpenses.isEmpty {
+                    if ledgerEntries.isEmpty {
                         EmptyStateView(systemImage: "tray", title: "Ничего не найдено")
                             .listRowBackground(Color.clear)
                     } else {
-                        ForEach(filteredExpenses, id: \.id) { expense in
-                            ExpenseRowView(expense: expense)
+                        ForEach(ledgerEntries) { entry in
+                            row(for: entry)
                                 .contentShape(Rectangle())
-                                .onTapGesture {
-                                    expenseBeingEdited = expense
-                                    isEditingExpense = true
-                                }
+                                .onTapGesture { edit(entry) }
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
-                                        delete(expense)
+                                        delete(entry)
                                     } label: {
                                         Label("Удалить", systemImage: "trash")
                                     }
@@ -94,23 +123,47 @@ struct DashboardView: View {
             .listStyle(.plain)
             .searchable(text: $searchText, prompt: "Поиск по трате")
             .navigationTitle("Копейка")
-            .sheet(isPresented: $isEditingExpense) {
+            .sheet(isPresented: $isEditingEntry) {
                 if let expenseBeingEdited {
                     QuickAddView(editingExpense: expenseBeingEdited)
+                } else if let incomeBeingEdited {
+                    QuickAddView(editingIncome: incomeBeingEdited)
                 }
             }
         }
     }
 
-    private func delete(_ expense: Expense) {
-        Haptics.warning()
-        context.delete(expense)
-        try? context.save()
+    @ViewBuilder
+    private func row(for entry: LedgerEntry) -> some View {
+        switch entry.kind {
+        case .expense(let expense):
+            ExpenseRowView(expense: expense)
+        case .income(let income):
+            IncomeRowView(income: income, currencyCode: currencyCode)
+        }
     }
 
-    private static func currentMonthPredicate() -> NSPredicate {
-        let start = Calendar.current.dateInterval(of: .month, for: Date())?.start ?? Date()
-        return NSPredicate(format: "date >= %@", start as NSDate)
+    private func edit(_ entry: LedgerEntry) {
+        switch entry.kind {
+        case .expense(let expense):
+            expenseBeingEdited = expense
+            incomeBeingEdited = nil
+        case .income(let income):
+            incomeBeingEdited = income
+            expenseBeingEdited = nil
+        }
+        isEditingEntry = true
+    }
+
+    private func delete(_ entry: LedgerEntry) {
+        Haptics.warning()
+        switch entry.kind {
+        case .expense(let expense):
+            context.delete(expense)
+        case .income(let income):
+            context.delete(income)
+        }
+        try? context.save()
     }
 }
 

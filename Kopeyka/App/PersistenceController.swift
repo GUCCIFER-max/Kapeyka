@@ -53,7 +53,6 @@ final class PersistenceController {
             if try context.count(for: settingsRequest) == 0 {
                 let settings = Settings(context: context)
                 settings.defaultCurrency = "UZS"
-                settings.monthlyBudget = 0
             }
 
             if context.hasChanges {

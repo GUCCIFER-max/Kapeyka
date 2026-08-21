@@ -30,8 +30,7 @@ struct TemplateFormView: View {
         NavigationStack {
             Form {
                 TextField("Название", text: $label)
-                TextField("Сумма", text: $amountText)
-                    .keyboardType(.decimalPad)
+                AmountField(rawValue: $amountText, fontSize: 24)
             }
             .navigationTitle(template == nil ? "Новый шаблон" : "Шаблон")
             .navigationBarTitleDisplayMode(.inline)

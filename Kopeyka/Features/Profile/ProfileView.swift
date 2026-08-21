@@ -7,8 +7,6 @@ struct ProfileView: View {
     @FetchRequest(sortDescriptors: [])
     private var settingsResults: FetchedResults<Settings>
 
-    @State private var budgetText: String = ""
-
     private var settings: Settings? { settingsResults.first }
 
     var body: some View {
@@ -23,16 +21,16 @@ struct ProfileView: View {
                         .pickerStyle(.segmented)
                     }
 
-                    Section("Месячный бюджет") {
-                        TextField("0", text: $budgetText)
-                            .keyboardType(.decimalPad)
-                            .onChange(of: budgetText) { newValue in
-                                updateBudget(newValue, on: settings)
-                            }
-                    }
-
                     Section("Уведомления") {
-                        Toggle("Напоминания о бюджете", isOn: notificationsBinding(for: settings))
+                        Toggle("Ежедневное напоминание", isOn: notificationsBinding(for: settings))
+
+                        if settings.notificationsEnabled {
+                            DatePicker(
+                                "Время",
+                                selection: reminderTimeBinding(for: settings),
+                                displayedComponents: .hourAndMinute
+                            )
+                        }
                     }
 
                     Section("Данные") {
@@ -48,11 +46,6 @@ struct ProfileView: View {
                 }
             }
             .navigationTitle("Профиль")
-            .onAppear {
-                if let settings {
-                    budgetText = NSDecimalNumber(decimal: settings.monthlyBudget).stringValue
-                }
-            }
         }
     }
 
@@ -72,15 +65,33 @@ struct ProfileView: View {
             set: { newValue in
                 settings.notificationsEnabled = newValue
                 try? context.save()
+
+                if newValue {
+                    NotificationManager.requestAuthorization { granted in
+                        if granted {
+                            NotificationManager.scheduleDailyReminder(at: settings.reminderTime ?? Self.defaultReminderTime)
+                        }
+                    }
+                } else {
+                    NotificationManager.cancelDailyReminder()
+                }
             }
         )
     }
 
-    private func updateBudget(_ text: String, on settings: Settings) {
-        let normalized = text.replacingOccurrences(of: ",", with: ".")
-        guard let amount = Decimal(string: normalized, locale: Locale(identifier: "en_US")) else { return }
-        settings.monthlyBudget = amount
-        try? context.save()
+    private func reminderTimeBinding(for settings: Settings) -> Binding<Date> {
+        Binding(
+            get: { settings.reminderTime ?? Self.defaultReminderTime },
+            set: { newValue in
+                settings.reminderTime = newValue
+                try? context.save()
+                NotificationManager.scheduleDailyReminder(at: newValue)
+            }
+        )
+    }
+
+    private static var defaultReminderTime: Date {
+        Calendar.current.date(bySettingHour: 21, minute: 0, second: 0, of: Date()) ?? Date()
     }
 }
 
