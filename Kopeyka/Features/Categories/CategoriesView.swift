@@ -5,23 +5,9 @@ struct CategoriesView: View {
     @FetchRequest(sortDescriptors: [NSSortDescriptor(key: "name", ascending: true)])
     private var categories: FetchedResults<Category>
 
-    @FetchRequest(sortDescriptors: [], predicate: CategoriesView.currentMonthPredicate())
-    private var monthExpenses: FetchedResults<Expense>
-
-    @FetchRequest(sortDescriptors: [])
-    private var settingsResults: FetchedResults<Settings>
-
     @State private var isAddingCategory = false
 
     private let columns = [GridItem(.adaptive(minimum: 100), spacing: 16)]
-
-    private var currencyCode: String { settingsResults.first?.defaultCurrency ?? "UZS" }
-
-    private func totalSpent(for category: Category) -> Decimal {
-        monthExpenses
-            .filter { $0.category?.id == category.id }
-            .reduce(Decimal(0)) { $0 + $1.amount }
-    }
 
     var body: some View {
         NavigationStack {
@@ -31,11 +17,7 @@ struct CategoriesView: View {
                         NavigationLink {
                             CategoryDetailView(category: category)
                         } label: {
-                            CategoryTileView(
-                                category: category,
-                                spent: totalSpent(for: category),
-                                currencyCode: currencyCode
-                            )
+                            CategoryTileView(category: category)
                         }
                         .pressScale()
                     }
@@ -55,17 +37,10 @@ struct CategoriesView: View {
             }
         }
     }
-
-    private static func currentMonthPredicate() -> NSPredicate {
-        let start = Calendar.current.dateInterval(of: .month, for: Date())?.start ?? Date()
-        return NSPredicate(format: "date >= %@", start as NSDate)
-    }
 }
 
 private struct CategoryTileView: View {
     let category: Category
-    let spent: Decimal
-    let currencyCode: String
 
     var body: some View {
         VStack(spacing: 8) {
@@ -73,9 +48,6 @@ private struct CategoryTileView: View {
             Text(category.name ?? "")
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)
-            Text(CurrencyFormatter.string(spent, currencyCode: currencyCode))
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)

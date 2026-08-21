@@ -1,8 +1,8 @@
 import SwiftUI
+import CoreData
 
 struct IncomeRowView: View {
-    let income: Income
-    let currencyCode: String
+    @ObservedObject var income: Income
 
     var body: some View {
         HStack(spacing: 12) {
@@ -25,7 +25,7 @@ struct IncomeRowView: View {
 
             Spacer()
 
-            Text("+" + CurrencyFormatter.string(income.amount, currencyCode: currencyCode))
+            Text("+" + CurrencyFormatter.string(income.amount, currencyCode: income.currency ?? "UZS"))
                 .font(.sum(17))
                 .foregroundStyle(.green)
         }

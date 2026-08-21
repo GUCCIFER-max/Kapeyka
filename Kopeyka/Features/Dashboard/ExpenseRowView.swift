@@ -1,7 +1,8 @@
 import SwiftUI
+import CoreData
 
 struct ExpenseRowView: View {
-    let expense: Expense
+    @ObservedObject var expense: Expense
 
     var body: some View {
         HStack(spacing: 12) {

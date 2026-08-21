@@ -105,7 +105,7 @@ struct QuickAddView: View {
                 dismiss()
             }
         case .income:
-            if viewModel.saveIncome(in: context) {
+            if viewModel.saveIncome(in: context, currencyCode: currencyCode) {
                 Haptics.success()
                 dismiss()
             }

@@ -49,8 +49,11 @@ struct DashboardView: View {
         allExpenses.reduce(Decimal(0)) { $0 + $1.amount }
     }
 
-    private var debtTotal: Decimal {
-        allIncomes.filter(\.isDebt).reduce(Decimal(0)) { $0 + $1.amount }
+    private var debts: [BalanceCardView.DebtEntry] {
+        allIncomes.compactMap { income in
+            guard income.isDebt, let id = income.id else { return nil }
+            return BalanceCardView.DebtEntry(id: id, source: income.source ?? "Долг", amount: income.amount)
+        }
     }
 
     private var ledgerEntries: [LedgerEntry] {
@@ -83,7 +86,7 @@ struct DashboardView: View {
                         balance: incomeTotal - expenseTotal,
                         income: incomeTotal,
                         expenses: expenseTotal,
-                        debt: debtTotal,
+                        debts: debts,
                         currencyCode: currencyCode
                     )
                     .listRowBackground(Color.clear)
@@ -139,7 +142,7 @@ struct DashboardView: View {
         case .expense(let expense):
             ExpenseRowView(expense: expense)
         case .income(let income):
-            IncomeRowView(income: income, currencyCode: currencyCode)
+            IncomeRowView(income: income)
         }
     }
 

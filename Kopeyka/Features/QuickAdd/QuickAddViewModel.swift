@@ -83,13 +83,14 @@ final class QuickAddViewModel: ObservableObject {
     }
 
     @discardableResult
-    func saveIncome(in context: NSManagedObjectContext) -> Bool {
+    func saveIncome(in context: NSManagedObjectContext, currencyCode: String) -> Bool {
         guard let amount = parsedAmount else { return false }
 
         let income = editingIncome ?? Income(context: context)
         if editingIncome == nil {
             income.id = UUID()
             income.date = Date()
+            income.currency = currencyCode
         }
         income.amount = amount
         income.source = source.trimmingCharacters(in: .whitespaces)

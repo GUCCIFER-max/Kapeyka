@@ -1,10 +1,16 @@
 import SwiftUI
 
 struct BalanceCardView: View {
+    struct DebtEntry: Identifiable {
+        let id: UUID
+        let source: String
+        let amount: Decimal
+    }
+
     let balance: Decimal
     let income: Decimal
     let expenses: Decimal
-    let debt: Decimal
+    let debts: [DebtEntry]
     let currencyCode: String
 
     var body: some View {
@@ -25,10 +31,14 @@ struct BalanceCardView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
-            if debt > 0 {
-                Text("Из них в долг: \(CurrencyFormatter.string(debt, currencyCode: currencyCode))")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+            if !debts.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(debts) { debt in
+                        Text("Из них в долг (\(debt.source)): \(CurrencyFormatter.string(debt.amount, currencyCode: currencyCode))")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.orange)
             }
         }
         .padding(20)
@@ -37,7 +47,16 @@ struct BalanceCardView: View {
 }
 
 #Preview {
-    BalanceCardView(balance: 649_000, income: 1_500_000, expenses: 851_000, debt: 300_000, currencyCode: "UZS")
-        .padding()
-        .preferredColorScheme(.dark)
+    BalanceCardView(
+        balance: 649_000,
+        income: 1_500_000,
+        expenses: 851_000,
+        debts: [
+            BalanceCardView.DebtEntry(id: UUID(), source: "Uzum", amount: 500_000),
+            BalanceCardView.DebtEntry(id: UUID(), source: "Tez", amount: 500_000)
+        ],
+        currencyCode: "UZS"
+    )
+    .padding()
+    .preferredColorScheme(.dark)
 }
